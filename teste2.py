@@ -60,7 +60,7 @@ start_time = time.time()
 interval = 3  # Intervalo de tempo em segundos para captura de frames
 
 # Criar a pasta para armazenar imagens
-images_folder_path = r"G:\AtvIngrid\imagens"
+images_folder_path = r"C:\Users\eliak\visaocomputacional\imagens"
 create_images_folder(images_folder_path)
 
 while True:
