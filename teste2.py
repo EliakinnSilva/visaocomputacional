@@ -1,67 +1,26 @@
 import cv2
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 import time
-import mediapipe as mp
 import os
 
-# Pré-processamento de Imagens
-
-def preprocess_image(image):
-    resized_image = cv2.resize(image, (224, 224))  # Redimensionamento para o tamanho esperado pelo modelo
-    normalized_image = resized_image / 255.0  # Normalização dos valores de pixel
-    return normalized_image
-
-# Implementação do Modelo de Reconhecimento de Objetos
-
-def create_model(num_classes):
-    base_model = MobileNetV2(weights='imagenet', include_top=False)  # Carrega o modelo base sem a camada de classificação
-    model = Sequential([
-        base_model,
-        GlobalAveragePooling2D(),
-        Dense(num_classes, activation='softmax')  # Adiciona uma camada de classificação com softmax
-    ])
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    return model
-
-# Desenvolvimento do Sistema de Classificação
-
-def classify_frame(frame, model):
-    preprocessed_frame = preprocess_image(frame)
-    preprocessed_frame = np.expand_dims(preprocessed_frame, axis=0)  # Adiciona uma dimensão extra para a amostra única
-    prediction = model.predict(preprocessed_frame)
-    return prediction
-
-# Criar pasta para armazenar as imagens se não existir
-def create_images_folder(folder_path):
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-
-# Carregamento do modelo
-num_classes = 3  # Número de classes no conjunto de dados
-model = create_model(num_classes)
-# Carregue o modelo treinado...
+# Carregar o modelo YOLOv3
+net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
+classes = []
+with open("coco.names", "r") as f:
+    classes = [line.strip() for line in f.readlines()]
+layer_names = net.getLayerNames()
+output_layers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
 
 # Carregar o classificador Haar Cascade para detecção de rostos
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-# Carregar o detector de mãos do MediaPipe
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5, min_tracking_confidence=0.5)
-
 # Captura de vídeo da webcam
 cap = cv2.VideoCapture(0)  # 0 para a webcam padrão, ou troque por outro índice para usar uma webcam específica
 
-# Variáveis para rastreamento de tempo
-start_time = time.time()
-interval = 3  # Intervalo de tempo em segundos para captura de frames
-
-# Criar a pasta para armazenar imagens
-images_folder_path = r"C:\Users\eliak\visaocomputacional\imagens"
-create_images_folder(images_folder_path)
+# Criar pasta para armazenar as imagens se não existir
+images_folder_path = r"G:\AtvIngrid\imagens"
+if not os.path.exists(images_folder_path):
+    os.makedirs(images_folder_path)
 
 while True:
     ret, frame = cap.read()  # Captura um frame da webcam
@@ -69,41 +28,49 @@ while True:
     if not ret:
         break
 
-    # Converta o frame para escala de cinza para detecção de rostos
+    # Detecção de rostos na cena
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # Detecte rostos na cena
     faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
     for (x, y, w, h) in faces:
-        # Desenhe um retângulo ao redor do rosto detectado
         cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
-        # Classifique o frame atual se o intervalo de tempo for atingido
-        if time.time() - start_time >= interval:
-            start_time = time.time()
+    # Detecção de objetos na cena
+    height, width, channels = frame.shape
+    blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
+    net.setInput(blob)
+    outs = net.forward(output_layers)
 
-            # Salve o frame atual para reconhecimento
-            frame_to_recognize = frame[y:y+h, x:x+w]
+    class_ids = []
+    confidences = []
+    boxes = []
+    for out in outs:
+        for detection in out:
+            scores = detection[5:]
+            class_id = np.argmax(scores)
+            confidence = scores[class_id]
+            if confidence > 0.5:
+                # Object detected
+                center_x = int(detection[0] * width)
+                center_y = int(detection[1] * height)
+                w = int(detection[2] * width)
+                h = int(detection[3] * height)
 
-            # Classifique o frame para reconhecimento
-            prediction = classify_frame(frame_to_recognize, model)
-            print("Prediction:", prediction)
+                # Rectangle coordinates
+                x = int(center_x - w / 2)
+                y = int(center_y - h / 2)
 
-            # Salve a imagem na pasta
-            image_name = time.strftime("%Y%m%d-%H%M%S") + ".jpg"
-            image_path = os.path.join(images_folder_path, image_name)
-            cv2.imwrite(image_path, frame_to_recognize)
-            print("Image saved:", image_path)
+                boxes.append([x, y, w, h])
+                confidences.append(float(confidence))
+                class_ids.append(class_id)
 
-    # Detecção de mãos
-    results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            # Desenhe os pontos de referência das mãos no frame
-            for landmark in hand_landmarks.landmark:
-                x, y = int(landmark.x * frame.shape[1]), int(landmark.y * frame.shape[0])
-                cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
+    indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
+
+    for i in range(len(boxes)):
+        if i in indexes:
+            x, y, w, h = boxes[i]
+            label = str(classes[class_ids[i]])
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
+            cv2.putText(frame, label, (x, y + 30), cv2.FONT_HERSHEY_PLAIN, 3, (0, 255, 0), 2)
 
     # Exiba o frame
     cv2.imshow('Webcam', frame)
