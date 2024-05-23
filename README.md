@@ -19,7 +19,7 @@ Este projeto tem como objetivo criar um sistema de detecção de rostos e objeto
 3. Baixe os arquivos do modelo YOLOv3 (`yolov3.weights`, `yolov3.cfg` e `coco.names`) e os arquivos do classificador Haar Cascade para detecção de rostos. Eles devem estar no mesmo diretório que o código.
 
 ## Como usar
-1. Execute o script `detect_faces_and_objects.py`.
+1. Execute o script `app.py`.
 2. Uma janela de vídeo será aberta mostrando a saída da webcam.
 3. A detecção de rostos e objetos será feita em tempo real e os resultados serão exibidos na janela de vídeo.
 
