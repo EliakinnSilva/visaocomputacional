@@ -1,83 +1,76 @@
+import tkinter as tk
+from PIL import Image, ImageTk
 import cv2
-import numpy as np
-import time
-import os
+import dlib
 
-# Carregar o modelo YOLOv3
-net = cv2.dnn.readNet("yolov3.weights", "yolov3.cfg")
-classes = []
-with open("coco.names", "r") as f:
-    classes = [line.strip() for line in f.readlines()]
-layer_names = net.getLayerNames()
-output_layers = [layer_names[i[0] - 1] for i in net.getUnconnectedOutLayers()]
+class Application:
+    def __init__(self, window, video_source=0):
+        self.window = window
+        self.window.title("Detecção e Classificação em Tempo Real")
+        
+        # Inicialização da captura de vídeo
+        self.video_source = video_source
+        self.vid = cv2.VideoCapture(self.video_source)
+        
+        # Inicialização da interface gráfica
+        self.canvas = tk.Canvas(window, width=640, height=480)
+        self.canvas.pack()
+        
+        # Botão para iniciar o processamento
+        self.btn_start = tk.Button(window, text="Iniciar Processamento", width=20, command=self.start_processing)
+        self.btn_start.pack(pady=10)
+        
+        # Atualização do frame
+        self.delay = 10
+        self.update()
 
-# Carregar o classificador Haar Cascade para detecção de rostos
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        # Inicialização do detector de rostos
+        self.face_detector = dlib.get_frontal_face_detector()
 
-# Captura de vídeo da webcam
-cap = cv2.VideoCapture(0)  # 0 para a webcam padrão, ou troque por outro índice para usar uma webcam específica
+        # Inicialização do detector de mãos (você pode substituir isso por outro método)
+        self.hand_detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_hand.xml')
 
-# Criar pasta para armazenar as imagens se não existir
-images_folder_path = r"G:\AtvIngrid\imagens"
-if not os.path.exists(images_folder_path):
-    os.makedirs(images_folder_path)
+    def start_processing(self):
+        while True:
+            ret, frame = self.vid.read()
+            if ret:
+                # Conversão para escala de cinza para detecção de rostos e mãos
+                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-while True:
-    ret, frame = cap.read()  # Captura um frame da webcam
+                # Detecção de rostos
+                faces = self.face_detector(gray)
+                for face in faces:
+                    x, y, w, h = face.left(), face.top(), face.width(), face.height()
+                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
 
-    if not ret:
-        break
+                # Detecção de mãos
+                hands = self.hand_detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+                for (hx, hy, hw, hh) in hands:
+                    cv2.rectangle(frame, (hx, hy), (hx + hw, hy + hh), (255, 0, 0), 2)
 
-    # Detecção de rostos na cena
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-    for (x, y, w, h) in faces:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+                # Exibição do frame com as detecções
+                self.photo = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+                self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
 
-    # Detecção de objetos na cena
-    height, width, channels = frame.shape
-    blob = cv2.dnn.blobFromImage(frame, 0.00392, (416, 416), (0, 0, 0), True, crop=False)
-    net.setInput(blob)
-    outs = net.forward(output_layers)
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
 
-    class_ids = []
-    confidences = []
-    boxes = []
-    for out in outs:
-        for detection in out:
-            scores = detection[5:]
-            class_id = np.argmax(scores)
-            confidence = scores[class_id]
-            if confidence > 0.5:
-                # Object detected
-                center_x = int(detection[0] * width)
-                center_y = int(detection[1] * height)
-                w = int(detection[2] * width)
-                h = int(detection[3] * height)
+        # Libere a captura de vídeo e feche a janela quando terminar
+        self.vid.release()
+        cv2.destroyAllWindows()
 
-                # Rectangle coordinates
-                x = int(center_x - w / 2)
-                y = int(center_y - h / 2)
+    def update(self):
+        # Função para atualizar o frame exibido na interface gráfica
+        ret, frame = self.vid.read()
+        if ret:
+            self.photo = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
+            self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
+        self.window.after(self.delay, self.update)
 
-                boxes.append([x, y, w, h])
-                confidences.append(float(confidence))
-                class_ids.append(class_id)
+def main():
+    root = tk.Tk()
+    app = Application(root)
+    root.mainloop()
 
-    indexes = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
-
-    for i in range(len(boxes)):
-        if i in indexes:
-            x, y, w, h = boxes[i]
-            label = str(classes[class_ids[i]])
-            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
-            cv2.putText(frame, label, (x, y + 30), cv2.FONT_HERSHEY_PLAIN, 3, (0, 255, 0), 2)
-
-    # Exiba o frame
-    cv2.imshow('Webcam', frame)
-
-    if cv2.waitKey(1) & 0xFF == ord('q'):  # Pressione 'q' para sair
-        break
-
-# Libere a captura de vídeo e feche todas as janelas
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()

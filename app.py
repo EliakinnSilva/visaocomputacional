@@ -78,6 +78,8 @@ while True:
     for (x, y, w, h) in faces:
         # Desenhe um retângulo ao redor do rosto detectado
         cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        # Adicione a tag "Face" ao lado do rosto detectado
+        cv2.putText(frame, "Face", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
 
         # Classifique o frame atual se o intervalo de tempo for atingido
         if time.time() - start_time >= interval:
@@ -104,6 +106,10 @@ while True:
             for landmark in hand_landmarks.landmark:
                 x, y = int(landmark.x * frame.shape[1]), int(landmark.y * frame.shape[0])
                 cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
+            # Adicione a tag "Hand" ao lado da mão detectada
+            x_min = int(min([landmark.x for landmark in hand_landmarks.landmark]) * frame.shape[1])
+            y_min = int(min([landmark.y for landmark in hand_landmarks.landmark]) * frame.shape[0])
+            cv2.putText(frame, "Hand", (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
     # Exiba o frame
     cv2.imshow('Webcam', frame)
