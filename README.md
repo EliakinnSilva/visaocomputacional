@@ -12,7 +12,9 @@ Este projeto tem como objetivo capturar imagens do rosto de um usuário utilizan
 ## Instalação
 1. Certifique-se de ter o Python 3.x instalado no seu sistema.
 2. Instale as dependências executando o seguinte comando:
-==> pip install opencv-python-headless opencv-python-headless <==
+   
+## pip install opencv-python-headless opencv-python-headless 
+
 3. Baixe o arquivo do classificador Haar Cascade para detecção de rostos (haarcascade_frontalface_default.xml).
 
 ## Como Usar
