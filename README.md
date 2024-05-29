@@ -1,40 +1,32 @@
-# Projeto de Detecção de Rostos e Objetos em Tempo Real
+# Projeto de Captura de Imagens de Rostos
 
 ## Objetivo
-
-Este projeto visa criar um sistema de detecção de rostos e objetos em tempo real utilizando uma webcam. A detecção de rostos é realizada usando o classificador Haar Cascade, enquanto a detecção de objetos é feita com o modelo YOLOv3.
+Este projeto tem como objetivo capturar imagens do rosto de um usuário utilizando uma webcam e salvar essas imagens em um diretório específico.
 
 ## Requisitos
-
 - Python 3.x
 - OpenCV (cv2)
-- NumPy
-- Arquivos do modelo YOLOv3 (`yolov3.weights`, `yolov3.cfg` e `coco.names`)
-- Arquivos do classificador Haar Cascade para detecção de rostos
+- Tkinter (para a interface de usuário)
+- Arquivo do classificador Haar Cascade para detecção de rostos
 
 ## Instalação
-
 1. Certifique-se de ter o Python 3.x instalado no seu sistema.
 2. Instale as dependências executando o seguinte comando:
+==> pip install opencv-python-headless opencv-python-headless <==
+3. Baixe o arquivo do classificador Haar Cascade para detecção de rostos (haarcascade_frontalface_default.xml).
 
-pip install opencv-python numpy
-
-3. Baixe os arquivos do modelo YOLOv3 (`yolov3.weights`, `yolov3.cfg` e `coco.names`) e os arquivos do classificador Haar Cascade para detecção de rostos. Eles devem estar no mesmo diretório que o código.
-
-## Como usar
-
-1. Execute o script `detect_faces_and_objects.py`.
-2. Execute o script `app.py`.
-3. Uma janela de vídeo será aberta mostrando a saída da webcam.
-4. A detecção de rostos e objetos será feita em tempo real e os resultados serão exibidos na janela de vídeo.
+## Como Usar
+1. Execute o script capture_face_images.py.
+2. Uma janela será aberta solicitando o nome do usuário e o número de imagens a serem capturadas.
+3. Posicione seu rosto dentro da área visível da webcam.
+4. As imagens do rosto serão capturadas automaticamente de acordo com o número especificado.
+5. As imagens serão salvas em um diretório específico.
 
 ## Detalhes do Código
-
-O código utiliza a biblioteca OpenCV para capturar o vídeo da webcam, realizar a detecção de rostos e objetos, e exibir os resultados em tempo real. O classificador Haar Cascade é utilizado para a detecção de rostos na cena, enquanto o modelo YOLOv3 é utilizado para a detecção de objetos na cena.
-
-Os arquivos do modelo YOLOv3 devem estar presentes no mesmo diretório que o código para que a detecção de objetos funcione corretamente.
+O código utiliza a biblioteca OpenCV para capturar o vídeo da webcam e detectar rostos na cena. As imagens do rosto são capturadas automaticamente e salvas em um diretório específico. O script também utiliza a biblioteca Tkinter para uma interface de usuário básica.
 
 ## Limitações
+- A detecção de rostos pode não ser tão precisa em todas as condições de iluminação e posição da câmera.
+- O desempenho pode variar dependendo da velocidade do processador e da webcam utilizada.
 
-- A detecção de objetos pode não ser tão precisa em ambientes com baixa iluminação ou com objetos pequenos.
-- O desempenho pode ser afetado em sistemas com recursos limitados devido à carga computacional da detecção em tempo real.
+- 
