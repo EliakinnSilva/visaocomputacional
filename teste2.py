@@ -1,76 +1,84 @@
-import tkinter as tk
-from PIL import Image, ImageTk
 import cv2
-import dlib
+import os
+import time
+import tkinter as tk
+from tkinter import simpledialog
 
-class Application:
-    def __init__(self, window, video_source=0):
-        self.window = window
-        self.window.title("Detecção e Classificação em Tempo Real")
-        
-        # Inicialização da captura de vídeo
-        self.video_source = video_source
-        self.vid = cv2.VideoCapture(self.video_source)
-        
-        # Inicialização da interface gráfica
-        self.canvas = tk.Canvas(window, width=640, height=480)
-        self.canvas.pack()
-        
-        # Botão para iniciar o processamento
-        self.btn_start = tk.Button(window, text="Iniciar Processamento", width=20, command=self.start_processing)
-        self.btn_start.pack(pady=10)
-        
-        # Atualização do frame
-        self.delay = 10
-        self.update()
+def create_user_folder(folder_path, user_name):
+    user_folder = os.path.join(folder_path, user_name)
+    if not os.path.exists(user_folder):
+        os.makedirs(user_folder)
+    return user_folder
 
-        # Inicialização do detector de rostos
-        self.face_detector = dlib.get_frontal_face_detector()
+def capture_images(user_name, save_path, num_images=5, interval=2):
+    cap = cv2.VideoCapture(0)
+    count = 0
+    
+    user_folder = create_user_folder(save_path, user_name)
+    
+    # Carregar o classificador Haar Cascade para detecção de rostos
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    
+    start_time = time.time()
 
-        # Inicialização do detector de mãos (você pode substituir isso por outro método)
-        self.hand_detector = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_hand.xml')
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Falha na captura do frame.")
+            break
 
-    def start_processing(self):
-        while True:
-            ret, frame = self.vid.read()
-            if ret:
-                # Conversão para escala de cinza para detecção de rostos e mãos
-                gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-                # Detecção de rostos
-                faces = self.face_detector(gray)
-                for face in faces:
-                    x, y, w, h = face.left(), face.top(), face.width(), face.height()
-                    cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-                # Detecção de mãos
-                hands = self.hand_detector.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-                for (hx, hy, hw, hh) in hands:
-                    cv2.rectangle(frame, (hx, hy), (hx + hw, hy + hh), (255, 0, 0), 2)
+            current_time = time.time()
+            if current_time - start_time >= interval:
+                start_time = current_time
 
-                # Exibição do frame com as detecções
-                self.photo = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
-                self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
-
-                if cv2.waitKey(1) & 0xFF == ord('q'):
+                # Capturar apenas o rosto e salvá-lo
+                face_img = frame[y:y+h, x:x+w]
+                img_name = f"{user_name}_{count}.jpg"
+                img_path = os.path.join(user_folder, img_name)
+                cv2.imwrite(img_path, face_img)
+                print(f"Imagem {img_name} salva em {img_path}")
+                count += 1
+                
+                if count >= num_images:
                     break
 
-        # Libere a captura de vídeo e feche a janela quando terminar
-        self.vid.release()
-        cv2.destroyAllWindows()
+        cv2.imshow('Captura de Imagens', frame)
 
-    def update(self):
-        # Função para atualizar o frame exibido na interface gráfica
-        ret, frame = self.vid.read()
-        if ret:
-            self.photo = ImageTk.PhotoImage(image=Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
-            self.canvas.create_image(0, 0, image=self.photo, anchor=tk.NW)
-        self.window.after(self.delay, self.update)
+        k = cv2.waitKey(1)
+        if k % 256 == 27:  # Pressione ESC para sair
+            break
+
+        if count >= num_images:
+            break
+
+    cap.release()
+    cv2.destroyAllWindows()
 
 def main():
+    save_path = r"C:\Users\eliak\visaocomputacional\dataset"
+
     root = tk.Tk()
-    app = Application(root)
-    root.mainloop()
+    root.withdraw()  # Esconder a janela principal do Tkinter
+
+    while True:
+        choice = simpledialog.askstring("Menu", "Escolha uma opção:\n1. Capturar imagens de um novo usuário\n2. Sair")
+        
+        if choice == '1':
+            user_name = simpledialog.askstring("Input", "Digite o nome do usuário:")
+            num_images = int(simpledialog.askstring("Input", "Digite o número de imagens a serem capturadas:"))
+            capture_images(user_name, save_path, num_images)
+        elif choice == '2':
+            print("Encerrando o programa.")
+            break
+        else:
+            tk.messagebox.showerror("Erro", "Opção inválida. Por favor, escolha novamente.")
 
 if __name__ == "__main__":
     main()
+10

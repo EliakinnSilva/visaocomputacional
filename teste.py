@@ -1,128 +1,141 @@
 import cv2
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
-import time
-import mediapipe as mp
 import os
+import time
+import face_recognition
+import tkinter as tk
+from tkinter import simpledialog, messagebox
 
-# Preprocessamento de Imagens
-def preprocess_image(image):
-    resized_image = cv2.resize(image, (224, 224))
-    return resized_image / 255.0
+def create_user_folder(folder_path, user_name):
+    user_folder = os.path.join(folder_path, user_name)
+    if not os.path.exists(user_folder):
+        os.makedirs(user_folder)
+    return user_folder
 
-# Criar modelo de classificacao
-def create_classification_model(num_classes):
-    base_model = MobileNetV2(weights='imagenet', include_top=False)
-    model = Sequential([
-        base_model,
-        GlobalAveragePooling2D(),
-        Dense(num_classes, activation='softmax')
-    ])
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    return model
-
-# Classificar frame
-def classify_frame(frame, model):
-    preprocessed_frame = preprocess_image(frame)
-    prediction = model.predict(np.expand_dims(preprocessed_frame, axis=0))
-    return prediction
-
-# Criar pasta para armazenar as imagens se nao existir
-def create_images_folder(folder_path):
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
-
-# Inicializar deteccao de maos
-def initialize_hand_detection():
-    mp_hands = mp.solutions.hands
-    return mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.7, min_tracking_confidence=0.5)
-
-# Inicializar deteccao de rostos
-def initialize_face_detection():
-    return cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-
-# Inicializar tracker de rostos
-def initialize_face_tracker():
-    return cv2.TrackerKCF_create()
-
-# Captura de video da webcam
-def capture_webcam_video(index=0):
-    return cv2.VideoCapture(index)
-
-# Main function
-def main():
-    num_classes = 3
-    model = create_classification_model(num_classes)
-    face_cascade = initialize_face_detection()
-    hands = initialize_hand_detection()
-    tracker = initialize_face_tracker()
-    cap = capture_webcam_video()
-
+def capture_images(user_name, save_path, num_images=5, interval=2):
+    cap = cv2.VideoCapture(0)
+    count = 0
+    
+    user_folder = create_user_folder(save_path, user_name)
+    
     start_time = time.time()
-    interval = 3
-    images_folder_path = r"C:\Users\eliak\visaocomputacional\imagens"
-    create_images_folder(images_folder_path)
 
     while True:
         ret, frame = cap.read()
-
         if not ret:
-            print("Erro ao capturar o frame")
+            print("Falha na captura do frame.")
             break
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+        current_time = time.time()
+        if current_time - start_time >= interval:
+            start_time = current_time
 
-        for (x, y, w, h) in faces:
-            if 'face_box' not in locals():
-                face_box = (x, y, w, h)
-                ok = tracker.init(frame, face_box)
+            # Detectar rostos na imagem
+            face_locations = face_recognition.face_locations(frame)
 
-            ok, face_box = tracker.update(frame)
-            if ok:
-                x, y, w, h = [int(i) for i in face_box]
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-                cv2.putText(frame, "Rosto", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+            for face_location in face_locations:
+                top, right, bottom, left = face_location
+                cv2.rectangle(frame, (left, top), (right, bottom), (255, 0, 0), 2)
 
-            if time.time() - start_time >= interval:
-                start_time = time.time()
-                frame_to_recognize = frame[y:y+h, x:x+w]
-                prediction = classify_frame(frame_to_recognize, model)
-                print("Predição:", prediction)
+                face_img = frame[top:bottom, left:right]
+                img_name = f"{user_name}_{count}.jpg"
+                img_path = os.path.join(user_folder, img_name)
+                cv2.imwrite(img_path, face_img)
+                print(f"Imagem {img_name} salva em {img_path}")
+                count += 1
 
-                autorizado = True
+                if count >= num_images:
+                    break
 
-                if autorizado:
-                    nome_imagem = time.strftime("%Y%m%d-%H%M%S") + ".jpg"
-                    caminho_imagem = os.path.join(images_folder_path, nome_imagem)
-                    cv2.imwrite(caminho_imagem, frame_to_recognize)
-                    print("Imagem salva:", caminho_imagem)
+        cv2.imshow('Captura de Imagens', frame)
 
-        results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                if hand_landmarks.landmark[mp_hands.HandLandmark.WRIST].x < hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].x:
-                    mao_texto = "Mão Direita"
-                else:
-                    mao_texto = "Mão Esquerda"
+        k = cv2.waitKey(1)
+        if k % 256 == 27:  # Pressione ESC para sair
+            break
 
-                for landmark in hand_landmarks.landmark:
-                    x, y = int(landmark.x * frame.shape[1]), int(landmark.y * frame.shape[0])
-                    cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
-
-                x_min = int(min([landmark.x for landmark in hand_landmarks.landmark]) * frame.shape[1])
-                y_min = int(min([landmark.y for landmark in hand_landmarks.landmark]) * frame.shape[0])
-                cv2.putText(frame, mao_texto, (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-
-        cv2.imshow('Webcam', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
+        if count >= num_images:
             break
 
     cap.release()
     cv2.destroyAllWindows()
+
+def load_known_faces(dataset_path):
+    known_face_encodings = []
+    known_face_names = []
+
+    for user_folder in os.listdir(dataset_path):
+        user_path = os.path.join(dataset_path, user_folder)
+        if not os.path.isdir(user_path):
+            continue
+
+        for img_name in os.listdir(user_path):
+            img_path = os.path.join(user_path, img_name)
+            img = face_recognition.load_image_file(img_path)
+            face_encodings = face_recognition.face_encodings(img)
+
+            if face_encodings:
+                known_face_encodings.append(face_encodings[0])
+                known_face_names.append(user_folder)
+
+    return known_face_encodings, known_face_names
+
+def recognize_user(frame, known_face_encodings, known_face_names):
+    face_locations = face_recognition.face_locations(frame)
+    face_encodings = face_recognition.face_encodings(frame, face_locations)
+
+    for face_encoding in face_encodings:
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
+        name = "Desconhecido"
+
+        face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
+        best_match_index = np.argmin(face_distances)
+
+        if matches[best_match_index]:
+            name = known_face_names[best_match_index]
+
+        return name
+    return None
+
+def main():
+    save_path = r"C:\Users\eliak\visaocomputacional\dataset"
+    known_face_encodings, known_face_names = load_known_faces(save_path)
+
+    root = tk.Tk()
+    root.withdraw()  # Esconder a janela principal do Tkinter
+
+    while True:
+        choice = simpledialog.askstring("Menu", "Escolha uma opção:\n1. Capturar imagens de um novo usuário\n2. Reconhecer usuário\n3. Sair")
+
+        if choice == '1':
+            user_name = simpledialog.askstring("Input", "Digite o nome do usuário:")
+            num_images = int(simpledialog.askstring("Input", "Digite o número de imagens a serem capturadas:"))
+            capture_images(user_name, save_path, num_images)
+            known_face_encodings, known_face_names = load_known_faces(save_path)
+        elif choice == '2':
+            cap = cv2.VideoCapture(0)
+
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    print("Falha na captura do frame.")
+                    break
+
+                name = recognize_user(frame, known_face_encodings, known_face_names)
+                if name:
+                    cv2.putText(frame, name, (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                
+                cv2.imshow('Reconhecimento de Usuário', frame)
+
+                k = cv2.waitKey(1)
+                if k % 256 == 27:  # Pressione ESC para sair
+                    break
+
+            cap.release()
+            cv2.destroyAllWindows()
+        elif choice == '3':
+            print("Encerrando o programa.")
+            break
+        else:
+            messagebox.showerror("Erro", "Opção inválida. Por favor, escolha novamente.")
 
 if __name__ == "__main__":
     main()

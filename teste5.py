@@ -7,14 +7,14 @@ from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 import time
 import mediapipe as mp
 import os
+import pickle
 
-# Preprocessamento de Imagens
 def preprocess_image(image):
     resized_image = cv2.resize(image, (224, 224))
-    return resized_image / 255.0
+    normalized_image = resized_image / 255.0
+    return normalized_image
 
-# Criar modelo de classificacao
-def create_classification_model(num_classes):
+def create_model(num_classes):
     base_model = MobileNetV2(weights='imagenet', include_top=False)
     model = Sequential([
         base_model,
@@ -24,105 +24,116 @@ def create_classification_model(num_classes):
     model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
-# Classificar frame
-def classify_frame(frame, model):
-    preprocessed_frame = preprocess_image(frame)
-    prediction = model.predict(np.expand_dims(preprocessed_frame, axis=0))
-    return prediction
+def load_database_images(database_path):
+    database = {}
+    for user_name in os.listdir(database_path):
+        user_folder = os.path.join(database_path, user_name)
+        if os.path.isdir(user_folder):
+            user_images = []
+            for image_name in os.listdir(user_folder):
+                image_path = os.path.join(user_folder, image_name)
+                image = cv2.imread(image_path)
+                if image is not None:
+                    user_images.append(image)
+            database[user_name] = user_images
+    return database
 
-# Criar pasta para armazenar as imagens se nao existir
+def extract_embeddings(images, model):
+    embeddings = []
+    for image in images:
+        preprocessed_image = preprocess_image(image)
+        preprocessed_image = np.expand_dims(preprocessed_image, axis=0)
+        embedding = model.predict(preprocessed_image)
+        embeddings.append(embedding)
+    return np.mean(embeddings, axis=0)
+
+def recognize_face(face_image, embeddings_db, model, threshold=0.6):
+    preprocessed_face = preprocess_image(face_image)
+    preprocessed_face = np.expand_dims(preprocessed_face, axis=0)
+    face_embedding = model.predict(preprocessed_face)
+    
+    min_dist = float('inf')
+    identity = None
+
+    for name, db_embedding in embeddings_db.items():
+        dist = np.linalg.norm(face_embedding - db_embedding)
+        if dist < min_dist:
+            min_dist = dist
+            identity = name
+
+    if min_dist < threshold:
+        return identity
+    else:
+        return "Unknown"
+
 def create_images_folder(folder_path):
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
 
-# Inicializar deteccao de maos
-def initialize_hand_detection():
-    mp_hands = mp.solutions.hands
-    return mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.7, min_tracking_confidence=0.5)
+# Carregar imagens e extrair embeddings do banco de dados
+database_path = r"C:\Users\eliak\visaocomputacional\dataset"
+database_images = load_database_images(database_path)
+embeddings_db = {name: extract_embeddings(images, model) for name, images in database_images.items()}
 
-# Inicializar deteccao de rostos
-def initialize_face_detection():
-    return cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+num_classes = len(embeddings_db)
+model = create_model(num_classes)
 
-# Inicializar tracker de rostos
-def initialize_face_tracker():
-    return cv2.TrackerKCF_create()
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 
-# Captura de video da webcam
-def capture_webcam_video(index=0):
-    return cv2.VideoCapture(index)
+mp_hands = mp.solutions.hands
+hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5, min_tracking_confidence=0.5)
 
-# Main function
-def main():
-    num_classes = 3
-    model = create_classification_model(num_classes)
-    face_cascade = initialize_face_detection()
-    hands = initialize_hand_detection()
-    tracker = initialize_face_tracker()
-    cap = capture_webcam_video()
+cap = cv2.VideoCapture(0)
 
-    start_time = time.time()
-    interval = 3
-    images_folder_path = r"C:\Users\eliak\visaocomputacional\imagens"
-    create_images_folder(images_folder_path)
+start_time = time.time()
+interval = 3
 
-    while True:
-        ret, frame = cap.read()
+images_folder_path = r"C:\Users\eliak\visaocomputacional\imagens"
+create_images_folder(images_folder_path)
 
-        if not ret:
-            print("Erro ao capturar o frame")
-            break
+while True:
+    ret, frame = cap.read()
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    if not ret:
+        print("Falha na captura do frame.")
+        break
 
-        for (x, y, w, h) in faces:
-            if 'face_box' not in locals():
-                face_box = (x, y, w, h)
-                ok = tracker.init(frame, face_box)
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
-            ok, face_box = tracker.update(frame)
-            if ok:
-                x, y, w, h = [int(i) for i in face_box]
-                cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-                cv2.putText(frame, "Rosto", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    print(f"Faces detectadas: {len(faces)}")
 
-            if time.time() - start_time >= interval:
-                start_time = time.time()
-                frame_to_recognize = frame[y:y+h, x:x+w]
-                prediction = classify_frame(frame_to_recognize, model)
-                print("Predição:", prediction)
+    for (x, y, w, h) in faces:
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        cv2.putText(frame, "Face", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
 
-                autorizado = True
+        if time.time() - start_time >= interval:
+            start_time = time.time()
+            frame_to_recognize = frame[y:y+h, x:x+w]
+            identity = recognize_face(frame_to_recognize, embeddings_db, model)
+            print(f"Identity: {identity}")
 
-                if autorizado:
-                    nome_imagem = time.strftime("%Y%m%d-%H%M%S") + ".jpg"
-                    caminho_imagem = os.path.join(images_folder_path, nome_imagem)
-                    cv2.imwrite(caminho_imagem, frame_to_recognize)
-                    print("Imagem salva:", caminho_imagem)
+            image_name = time.strftime("%Y%m%d-%H%M%S") + ".jpg"
+            image_path = os.path.join(images_folder_path, image_name)
+            cv2.imwrite(image_path, frame_to_recognize)
+            print(f"Image saved: {image_path}")
 
-        results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                if hand_landmarks.landmark[mp_hands.HandLandmark.WRIST].x < hand_landmarks.landmark[mp_hands.HandLandmark.THUMB_TIP].x:
-                    mao_texto = "Mão Direita"
-                else:
-                    mao_texto = "Mão Esquerda"
+            cv2.putText(frame, identity, (x, y-30), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
 
-                for landmark in hand_landmarks.landmark:
-                    x, y = int(landmark.x * frame.shape[1]), int(landmark.y * frame.shape[0])
-                    cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
+    results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    if results.multi_hand_landmarks:
+        for hand_landmarks in results.multi_hand_landmarks:
+            for landmark in hand_landmarks.landmark:
+                x, y = int(landmark.x * frame.shape[1]), int(landmark.y * frame.shape[0])
+                cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
+            x_min = int(min([landmark.x for landmark in hand_landmarks.landmark]) * frame.shape[1])
+            y_min = int(min([landmark.y for landmark in hand_landmarks.landmark]) * frame.shape[0])
+            cv2.putText(frame, "Hand", (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
 
-                x_min = int(min([landmark.x for landmark in hand_landmarks.landmark]) * frame.shape[1])
-                y_min = int(min([landmark.y for landmark in hand_landmarks.landmark]) * frame.shape[0])
-                cv2.putText(frame, mao_texto, (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
+    cv2.imshow('Webcam', frame)
 
-        cv2.imshow('Webcam', frame)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        break
 
-    cap.release()
-    cv2.destroyAllWindows()
-
-if __name__ == "__main__":
-    main()
+cap.release()
+cv2.destroyAllWindows()

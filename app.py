@@ -1,122 +1,83 @@
 import cv2
-import numpy as np
-import tensorflow as tf
-from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
-import time
-import mediapipe as mp
 import os
+import time
+import tkinter as tk
+from tkinter import simpledialog
 
-# Pré-processamento de Imagens
+def create_user_folder(folder_path, user_name):
+    user_folder = os.path.join(folder_path, user_name)
+    if not os.path.exists(user_folder):
+        os.makedirs(user_folder)
+    return user_folder
 
-def preprocess_image(image):
-    resized_image = cv2.resize(image, (224, 224))  # Redimensionamento para o tamanho esperado pelo modelo
-    normalized_image = resized_image / 255.0  # Normalização dos valores de pixel
-    return normalized_image
+def capture_images(user_name, save_path, num_images=5, interval=2):
+    cap = cv2.VideoCapture(0)
+    count = 0
+    
+    user_folder = create_user_folder(save_path, user_name)
+    
+    # Carregar o classificador Haar Cascade para detecção de rostos
+    face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    
+    start_time = time.time()
 
-# Implementação do Modelo de Reconhecimento de Objetos
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Falha na captura do frame.")
+            break
 
-def create_model(num_classes):
-    base_model = MobileNetV2(weights='imagenet', include_top=False)  # Carrega o modelo base sem a camada de classificação
-    model = Sequential([
-        base_model,
-        GlobalAveragePooling2D(),
-        Dense(num_classes, activation='softmax')  # Adiciona uma camada de classificação com softmax
-    ])
-    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
-    return model
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
 
-# Desenvolvimento do Sistema de Classificação
+        for (x, y, w, h) in faces:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 0, 0), 2)
 
-def classify_frame(frame, model):
-    preprocessed_frame = preprocess_image(frame)
-    preprocessed_frame = np.expand_dims(preprocessed_frame, axis=0)  # Adiciona uma dimensão extra para a amostra única
-    prediction = model.predict(preprocessed_frame)
-    return prediction
+            current_time = time.time()
+            if current_time - start_time >= interval:
+                start_time = current_time
 
-# Criar pasta para armazenar as imagens se não existir
-def create_images_folder(folder_path):
-    if not os.path.exists(folder_path):
-        os.makedirs(folder_path)
+                # Capturar apenas o rosto e salvá-lo
+                face_img = frame[y:y+h, x:x+w]
+                img_name = f"{user_name}_{count}.jpg"
+                img_path = os.path.join(user_folder, img_name)
+                cv2.imwrite(img_path, face_img)
+                print(f"Imagem {img_name} salva em {img_path}")
+                count += 1
+                
+                if count >= num_images:
+                    break
 
-# Carregamento do modelo
-num_classes = 3  # Número de classes no conjunto de dados
-model = create_model(num_classes)
-# Carregue o modelo treinado...
+        cv2.imshow('Captura de Imagens', frame)
 
-# Carregar o classificador Haar Cascade para detecção de rostos
-face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+        k = cv2.waitKey(1)
+        if k % 256 == 27:  # Pressione ESC para sair
+            break
 
-# Carregar o detector de mãos do MediaPipe
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands(static_image_mode=False, max_num_hands=2, min_detection_confidence=0.5, min_tracking_confidence=0.5)
+        if count >= num_images:
+            break
 
-# Captura de vídeo da webcam
-cap = cv2.VideoCapture(0)  # 0 para a webcam padrão, ou troque por outro índice para usar uma webcam específica
+    cap.release()
+    cv2.destroyAllWindows()
 
-# Variáveis para rastreamento de tempo
-start_time = time.time()
-interval = 3  # Intervalo de tempo em segundos para captura de frames
+def main():
+    save_path = r"C:\Users\eliak\visaocomputacional\dataset"
 
-# Criar a pasta para armazenar imagens
-images_folder_path = r"C:\Users\eliak\visaocomputacional\imagens"
-create_images_folder(images_folder_path)
+    root = tk.Tk()
+    root.withdraw()  # Esconder a janela principal do Tkinter
 
-while True:
-    ret, frame = cap.read()  # Captura um frame da webcam
+    while True:
+        choice = simpledialog.askstring("Menu", "Escolha uma opção:\n1. Capturar imagens de um novo usuário\n2. Sair")
+        
+        if choice == '1':
+            user_name = simpledialog.askstring("Input", "Digite o nome do usuário:")
+            num_images = int(simpledialog.askstring("Input", "Digite o número de imagens a serem capturadas:"))
+            capture_images(user_name, save_path, num_images)
+        elif choice == '2':
+            print("Encerrando o programa.")
+            break
+        else:
+            tk.messagebox.showerror("Erro", "Opção inválida. Por favor, escolha novamente.")
 
-    if not ret:
-        break
-
-    # Converta o frame para escala de cinza para detecção de rostos
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-    # Detecte rostos na cena
-    faces = face_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
-
-    for (x, y, w, h) in faces:
-        # Desenhe um retângulo ao redor do rosto detectado
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-        # Adicione a tag "Face" ao lado do rosto detectado
-        cv2.putText(frame, "Face", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
-
-        # Classifique o frame atual se o intervalo de tempo for atingido
-        if time.time() - start_time >= interval:
-            start_time = time.time()
-
-            # Salve o frame atual para reconhecimento
-            frame_to_recognize = frame[y:y+h, x:x+w]
-
-            # Classifique o frame para reconhecimento
-            prediction = classify_frame(frame_to_recognize, model)
-            print("Prediction:", prediction)
-
-            # Salve a imagem na pasta
-            image_name = time.strftime("%Y%m%d-%H%M%S") + ".jpg"
-            image_path = os.path.join(images_folder_path, image_name)
-            cv2.imwrite(image_path, frame_to_recognize)
-            print("Image saved:", image_path)
-
-    # Detecção de mãos
-    results = hands.process(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            # Desenhe os pontos de referência das mãos no frame
-            for landmark in hand_landmarks.landmark:
-                x, y = int(landmark.x * frame.shape[1]), int(landmark.y * frame.shape[0])
-                cv2.circle(frame, (x, y), 5, (0, 255, 0), -1)
-            # Adicione a tag "Hand" ao lado da mão detectada
-            x_min = int(min([landmark.x for landmark in hand_landmarks.landmark]) * frame.shape[1])
-            y_min = int(min([landmark.y for landmark in hand_landmarks.landmark]) * frame.shape[0])
-            cv2.putText(frame, "Hand", (x_min, y_min-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-
-    # Exiba o frame
-    cv2.imshow('Webcam', frame)
-
-    if cv2.waitKey(1) & 0xFF == ord('q'):  # Pressione 'q' para sair
-        break
-
-# Libere a captura de vídeo e feche todas as janelas
-cap.release()
-cv2.destroyAllWindows()
+if __name__ == "__main__":
+    main()
