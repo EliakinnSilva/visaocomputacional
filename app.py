@@ -2,7 +2,7 @@ import cv2
 import os
 import time
 import tkinter as tk
-from tkinter import simpledialog
+from tkinter import simpledialog, messagebox
 
 def create_user_folder(folder_path, user_name):
     user_folder = os.path.join(folder_path, user_name)
@@ -12,13 +12,14 @@ def create_user_folder(folder_path, user_name):
 
 def capture_images(user_name, save_path, num_images=5, interval=2):
     cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        messagebox.showerror("Erro", "Não foi possível acessar a câmera.")
+        return
+
     count = 0
-    
     user_folder = create_user_folder(save_path, user_name)
     
-    # Carregar o classificador Haar Cascade para detecção de rostos
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
-    
     start_time = time.time()
 
     while True:
@@ -37,7 +38,6 @@ def capture_images(user_name, save_path, num_images=5, interval=2):
             if current_time - start_time >= interval:
                 start_time = current_time
 
-                # Capturar apenas o rosto e salvá-lo
                 face_img = frame[y:y+h, x:x+w]
                 img_name = f"{user_name}_{count}.jpg"
                 img_path = os.path.join(user_folder, img_name)
@@ -50,8 +50,7 @@ def capture_images(user_name, save_path, num_images=5, interval=2):
 
         cv2.imshow('Captura de Imagens', frame)
 
-        k = cv2.waitKey(1)
-        if k % 256 == 27:  # Pressione ESC para sair
+        if cv2.waitKey(1) % 256 == 27:  # Pressione ESC para sair
             break
 
         if count >= num_images:
@@ -71,13 +70,22 @@ def main():
         
         if choice == '1':
             user_name = simpledialog.askstring("Input", "Digite o nome do usuário:")
-            num_images = int(simpledialog.askstring("Input", "Digite o número de imagens a serem capturadas:"))
+            if not user_name:
+                messagebox.showerror("Erro", "Nome do usuário não pode ser vazio.")
+                continue
+
+            try:
+                num_images = int(simpledialog.askstring("Input", "Digite o número de imagens a serem capturadas:"))
+            except ValueError:
+                messagebox.showerror("Erro", "Número de imagens deve ser um inteiro.")
+                continue
+
             capture_images(user_name, save_path, num_images)
         elif choice == '2':
             print("Encerrando o programa.")
             break
         else:
-            tk.messagebox.showerror("Erro", "Opção inválida. Por favor, escolha novamente.")
+            messagebox.showerror("Erro", "Opção inválida. Por favor, escolha novamente.")
 
 if __name__ == "__main__":
     main()
