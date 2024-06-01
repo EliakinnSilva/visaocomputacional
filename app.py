@@ -59,33 +59,37 @@ def capture_images(user_name, save_path, num_images=5, interval=2):
     cap.release()
     cv2.destroyAllWindows()
 
-def main():
-    save_path = r"C:\Users\eliak\visaocomputacional\dataset"
+class ImageCaptureApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Captura de Imagens")
+        self.root.geometry("400x200")
 
-    root = tk.Tk()
-    root.withdraw()  # Esconder a janela principal do Tkinter
+        self.label = tk.Label(root, text="Escolha uma opção:")
+        self.label.pack(pady=10)
 
-    while True:
-        choice = simpledialog.askstring("Menu", "Escolha uma opção:\n1. Capturar imagens de um novo usuário\n2. Sair")
-        
-        if choice == '1':
-            user_name = simpledialog.askstring("Input", "Digite o nome do usuário:")
-            if not user_name:
-                messagebox.showerror("Erro", "Nome do usuário não pode ser vazio.")
-                continue
+        self.capture_button = tk.Button(root, text="Capturar imagens de um novo usuário", command=self.capture_images)
+        self.capture_button.pack(pady=5)
 
-            try:
-                num_images = int(simpledialog.askstring("Input", "Digite o número de imagens a serem capturadas:"))
-            except ValueError:
-                messagebox.showerror("Erro", "Número de imagens deve ser um inteiro.")
-                continue
+        self.exit_button = tk.Button(root, text="Sair", command=root.quit)
+        self.exit_button.pack(pady=5)
 
-            capture_images(user_name, save_path, num_images)
-        elif choice == '2':
-            print("Encerrando o programa.")
-            break
-        else:
-            messagebox.showerror("Erro", "Opção inválida. Por favor, escolha novamente.")
+    def capture_images(self):
+        user_name = simpledialog.askstring("Input", "Digite o nome do usuário:")
+        if not user_name:
+            messagebox.showerror("Erro", "Nome do usuário não pode ser vazio.")
+            return
+
+        try:
+            num_images = int(simpledialog.askstring("Input", "Digite o número de imagens a serem capturadas:"))
+        except ValueError:
+            messagebox.showerror("Erro", "Número de imagens deve ser um inteiro.")
+            return
+
+        save_path = r"C:\Users\eliak\visaocomputacional\dataset"
+        capture_images(user_name, save_path, num_images)
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = ImageCaptureApp(root)
+    root.mainloop()
