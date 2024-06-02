@@ -18,7 +18,7 @@ def capture_images(user_name, save_path, num_images=5, interval=2):
 
     count = 0
     user_folder = create_user_folder(save_path, user_name)
-    
+
     face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
     start_time = time.time()
 
@@ -44,7 +44,7 @@ def capture_images(user_name, save_path, num_images=5, interval=2):
                 cv2.imwrite(img_path, face_img)
                 print(f"Imagem {img_name} salva em {img_path}")
                 count += 1
-                
+
                 if count >= num_images:
                     break
 
@@ -71,6 +71,12 @@ class ImageCaptureApp:
         self.capture_button = tk.Button(root, text="Capturar imagens de um novo usuário", command=self.capture_images)
         self.capture_button.pack(pady=5)
 
+        self.train_button = tk.Button(root, text="Treinar Reconhecimento", command=self.train_recognition)
+        self.train_button.pack(pady=5)
+
+        self.recognize_button = tk.Button(root, text="Iniciar Reconhecimento", command=self.recognize_faces)
+        self.recognize_button.pack(pady=5)
+
         self.exit_button = tk.Button(root, text="Sair", command=root.quit)
         self.exit_button.pack(pady=5)
 
@@ -88,6 +94,17 @@ class ImageCaptureApp:
 
         save_path = r"C:\Users\eliak\visaocomputacional\dataset"
         capture_images(user_name, save_path, num_images)
+
+    def train_recognition(self):
+        messagebox.showinfo("Info", "O treinamento do reconhecimento facial será iniciado.")
+        train_recognition() 
+
+    def recognize_faces(self):
+        messagebox.showinfo("Info", "O reconhecimento facial será iniciado.")
+        os.system("python reconhecimento_gui.py") 
+
+def train_recognition():
+        os.system("python treinamento.py")
 
 if __name__ == "__main__":
     root = tk.Tk()
