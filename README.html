@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Instalação de Bibliotecas Python</title>
+    <style>
+        body {
+            background-color: #121212;
+            color: #e0e0e0;
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        h1, h2 {
+            color: #bb86fc;
+        }
+
+        code {
+            background-color: #1e1e1e;
+            border-radius: 5px;
+            color: #dcdcdc;
+            display: block;
+            margin: 10px 0;
+            padding: 10px;
+        }
+
+        pre {
+            background-color: #1e1e1e;
+            border-radius: 5px;
+            color: #dcdcdc;
+            overflow-x: auto;
+            padding: 10px;
+        }
+
+        .step {
+            margin-bottom: 20px;
+        }
+
+        .step-title {
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Passo a Passo para Instalação de Bibliotecas Python</h1>
+        
+        <div class="step">
+            <div class="step-title">Passo 1: Abrir o Terminal/Prompt de Comando</div>
+            <p>Dependendo do seu sistema operacional, você vai abrir o terminal (no macOS ou Linux) ou o prompt de comando (no Windows).</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Passo 2: Criar e Ativar um Ambiente Virtual (Opcional, mas Recomendado)</div>
+            <p>É uma boa prática criar um ambiente virtual para seu projeto. Isso ajuda a gerenciar as dependências sem afetar outros projetos.</p>
+            <p><strong>Criar um Ambiente Virtual:</strong></p>
+            <pre><code>python -m venv meu_ambiente</code></pre>
+            <p>Substitua <code>meu_ambiente</code> pelo nome que você deseja dar ao seu ambiente virtual.</p>
+            <p><strong>Ativar o Ambiente Virtual:</strong></p>
+            <p>No Windows:</p>
+            <pre><code>meu_ambiente\Scripts\activate</code></pre>
+            <p>No macOS ou Linux:</p>
+            <pre><code>source meu_ambiente/bin/activate</code></pre>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Passo 3: Instalar as Bibliotecas</div>
+            <p>Agora, você pode instalar as bibliotecas necessárias:</p>
+            <p><strong>Instalar OpenCV e Cabeçalho:</strong></p>
+            <pre><code>pip install opencv-python-headless</code></pre>
+            <p><strong>Instalar NumPy, TensorFlow, Pillow e SciPy:</strong></p>
+            <pre><code>pip install numpy tensorflow pillow scipy</code></pre>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Passo 4: Verificar as Instalações</div>
+            <p>Para garantir que tudo foi instalado corretamente, você pode rodar o seguinte comando para listar as bibliotecas instaladas:</p>
+            <pre><code>pip list</code></pre>
+            <p>Isso deve mostrar todas as bibliotecas que você instalou, incluindo <code>opencv-python-headless</code>, <code>numpy</code>, <code>tensorflow</code>, <code>pillow</code> e <code>scipy</code>.</p>
+        </div>
+
+        <div class="step">
+            <div class="step-title">Passo 5: Desativar o Ambiente Virtual (quando terminar de trabalhar)</div>
+            <p>Para desativar o ambiente virtual, basta rodar:</p>
+            <pre><code>deactivate</code></pre>
+        </div>
+
+        <h2>Resumo dos Comandos</h2>
+        <pre><code># Criar um ambiente virtual (opcional)
+python -m venv meu_ambiente
+
+# Ativar o ambiente virtual
+# No Windows:
+meu_ambiente\Scripts\activate
+# No macOS ou Linux:
+source meu_ambiente/bin/activate
+
+# Instalar bibliotecas
+pip install opencv-python-headless
+pip install numpy tensorflow pillow scipy
+
+# Verificar as instalações
+pip list
+
+# Desativar o ambiente virtual (quando terminar)
+deactivate
+</code></pre>
+    </div>
+</body>
+</html>

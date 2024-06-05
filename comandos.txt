@@ -1,0 +1,6 @@
+
+       
+        pip install opencv-python opencv-python-headless
+        pip install numpy tensorflow opencv-python-headless pillow
+        pip install scipy
+        pip install opencv-python-headless

@@ -1,11 +1,6 @@
+opencv-python
+opencv-python-headless
 numpy
 tensorflow
-opencv-python-headless
 pillow
-
-<==para  intalar execute os comados abaixo no terminal==>
-
-        pip install -r requirements.txt
-        pip install numpy tensorflow opencv-python-headless pillow
-        pip install scipy
-        pip install opencv-python-headless
+scipy
