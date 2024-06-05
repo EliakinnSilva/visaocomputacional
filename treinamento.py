@@ -2,7 +2,7 @@ import os
 import numpy as np
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications import MobileNetV2
-from tensorflow.keras.models import Sequential
+from tensorflow.keras.models import Sequential, load_model
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -61,3 +61,35 @@ model.fit(train_generator, epochs=10, validation_data=validation_generator, call
 
 # Salvar o modelo treinado
 model.save('user_recognition_model_final.keras')
+
+
+# Função para prever a classe de uma imagem e marcar como desconhecido se não for confiante
+def predict_user(image_path, model, class_indices, threshold=0.7):
+    from tensorflow.keras.preprocessing import image
+    
+    # Carregar a imagem
+    img = image.load_img(image_path, target_size=(224, 224))
+    img_array = image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0) / 255.0
+    
+    # Fazer a previsão
+    predictions = model.predict(img_array)
+    max_confidence = np.max(predictions)
+    predicted_class = np.argmax(predictions)
+    
+    # Se a confiança for menor que o limiar, marcar como desconhecido
+    if max_confidence < threshold:
+        return "Desconhecido"
+    else:
+        for class_name, class_index in class_indices.items():
+            if class_index == predicted_class:
+                return class_name
+
+
+# Carregar o modelo treinado e prever uma nova imagem
+model = load_model('user_recognition_model_final.keras')
+class_indices = train_generator.class_indices
+
+image_path = 'path_to_new_image.jpg'  # caminho para a nova imagem
+user = predict_user(image_path, model, class_indices)
+print(f'O usuário é: {user}')
